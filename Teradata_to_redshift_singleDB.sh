@@ -27,8 +27,8 @@ HOST=$(jq --raw-output .ClusterEndpoint SSM_Redshift_Parameter.json)
 REDSHIFTDB=$(jq --raw-output .DatabaseName SSM_Redshift_Parameter.json)
 REDSHIFTUSER=$(jq --raw-output .UserName SSM_Redshift_Parameter.json)
 REDSHIFTPWD=$(jq --raw-output .Password SSM_Redshift_Parameter.json)
-JARLocation=${1} #s3 folder location s3://folder_name/
-HiveDbLocation=${2} #s3 folder location s3://folder_name/
+JARLocation=${1} 
+HiveDbLocation=${2} 
 IAMRole=${3}
 SgGroupId=${4}
 
@@ -112,25 +112,24 @@ getCountForAllTables
 echo "Tables imported successfully to S3 bucket"
 
 
-#########Access Redshift cluster on Ec2
-#curl -O http://yum.postgresql.org/9.3/redhat/rhel-5-x86_64/pgdg-centos93-9.3-1.noarch.rpm
-sudo aws s3 cp --recursive s3://bucketname/Redshift connector/pgdg-centos93-9.3-1.noarch.rpm
+#Access Redshift cluster on EC2
+curl -O http://yum.postgresql.org/9.3/redhat/rhel-5-x86_64/pgdg-centos93-9.3-1.noarch.rpm
 sudo yum -y install postgresql93 postgresql93-odbc
 
         DBNAME=${DBNAME}
         #Create External database
-        psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "CREATE EXTERNAL SCHEMA ${DBNAME}_rk FROM data catalog database '"${DBNAME}"' iam_role '${IAMRole}'  create external database if not exists;"
-                psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "CREATE SCHEMA ${DBNAME}_emr;"
+        psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "CREATE EXTERNAL SCHEMA ${DBNAME}_ext FROM data catalog database '"${DBNAME}"' iam_role '${IAMRole}'  create external database if not exists;"
+                psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "CREATE SCHEMA ${DBNAME}_mng;"
         #Get all the tables from external schema
-        psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "SELECT tablename FROM SVV_EXTERNAL_TABLES WHERE schemaname='"${DBNAME}_rk"'" -o ./tablelist.txt
+        psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "SELECT tablename FROM SVV_EXTERNAL_TABLES WHERE schemaname='"${DBNAME}_ext"'" -o ./tablelist.txt
         sed -r '/^\s*$/d' ./tablelist.txt|tee ./tablelist.txt;
 
         #Iterate to each tables of Exernal database and create managed table from it
         cat ./tablelist.txt|while read LINE
           do
                 EXTDBTABLE=${LINE}
-                psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "CREATE TABLE ${DBNAME}_emr.${EXTDBTABLE} AS SELECT * FROM ${DBNAME}_rk.${EXTDBTABLE}"
-                psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "SELECT COUNT(*) FROM ${DBNAME}_emr.${EXTDBTABLE}"
+                psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "CREATE TABLE ${DBNAME}_mng.${EXTDBTABLE} AS SELECT * FROM ${DBNAME}_ext.${EXTDBTABLE}"
+                psql -t "host=${HOST} port=5439 dbname=${REDSHIFTDB} user=${REDSHIFTUSER} password=${REDSHIFTPWD}" -F  --no-align    -c  "SELECT COUNT(*) FROM ${DBNAME}_mng.${EXTDBTABLE}"
           done
 
 echo "Tables migrated successfully to Redshift"
