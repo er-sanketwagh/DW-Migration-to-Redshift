@@ -114,7 +114,7 @@ echo "Tables imported successfully to S3 bucket"
 
 #########Access Redshift cluster on Ec2
 #curl -O http://yum.postgresql.org/9.3/redhat/rhel-5-x86_64/pgdg-centos93-9.3-1.noarch.rpm
-sudo aws s3 cp --recursive s3://aws-qinetic-emr/Redshift connector/pgdg-centos93-9.3-1.noarch.rpm
+sudo aws s3 cp --recursive s3://bucketname/Redshift connector/pgdg-centos93-9.3-1.noarch.rpm
 sudo yum -y install postgresql93 postgresql93-odbc
 
         DBNAME=${DBNAME}
